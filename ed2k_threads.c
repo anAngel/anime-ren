@@ -10,16 +10,17 @@
 
 #define CHUNK_SIZE 9728000
 #define BUF_SIZE   8000
+#define THREAD_LOOP for (i = 0; i < total_threads; ++i)
 
 const int total_threads = 4;
 mtx_t t_mtx;
 
 typedef struct {
   FILE* fh;
+  char* ret;
   size_t size, fh_size;
   long start, end;
   int id;
-  mtx_t* mtx;
 } thread_arg;
 
 long get_time() {
@@ -53,6 +54,7 @@ void test_thrd(void* arg) {
 
 int main (int argc, const char *argv[]) {
   long start_time = get_time();
+  int  i          = 0;
 
   FILE* fh = fopen(TEST, "rb");
   if (fh == NULL) {
@@ -63,36 +65,37 @@ int main (int argc, const char *argv[]) {
   fseek(fh, 0L, SEEK_END);
   size_t fh_size   = ftell(fh);
   rewind(fh);
-
   int too_small    = (fh_size < CHUNK_SIZE);
   int total_chunks = ceil(fh_size / (float)CHUNK_SIZE);
   int per_thread   = floor(total_chunks / (float)total_threads);
   int per_thread_r = total_chunks - (per_thread * total_threads);
   printf("%d %d %d %lu\n", total_chunks, per_thread, per_thread_r, fh_size);
 
-  unsigned char md [MD4_DIGEST_LENGTH];
-  MD4_CTX root;
-  MD4_Init(&root);
-
   mtx_init(&t_mtx, NULL);
   thread_arg t_args[total_threads];
-  for (int i = 0; i < total_threads; ++i) {
-    t_args[i].id   = i;
-    t_args[i].fh   = fh;
-    t_args[i].size = per_thread;
+  long last_end = -1;
+  THREAD_LOOP {
+    t_args[i].id    = i;
+    t_args[i].fh    = fh;
+    t_args[i].size  = per_thread;
+
     if (i == 0)
       t_args[i].fh_size = fh_size;
-    if (per_thread_r > 0) {
+    if (i >= (total_threads - per_thread_r))
       t_args[i].size += 1;
-      per_thread_r   -= 1;
-    }
+
+    t_args[i].start = last_end + 1;
+    t_args[i].end   = (i + 1 == total_threads ? \
+                      fh_size : \
+                      t_args[i].start + (CHUNK_SIZE * t_args[i].size));
+    last_end = t_args[i].end;
   }
 
   void (*test_func)(void*) = test_thrd;
   thrd_t* t = malloc(total_threads * sizeof(thrd_t*));
-  for (int i = 0; i < total_threads; ++i)
+  THREAD_LOOP
     thrd_create(&t[i], test_func, (void*)&t_args[i]);
-  for (int i = 0; i < total_threads; ++i)
+  THREAD_LOOP
     thrd_join(t[i], NULL);
 
   fclose(fh);
