@@ -12,16 +12,23 @@
 const int total_threads = 4;
 const int total_tests   = 15;
 
-const char* test_files[total_tests];
-int next_file = 0;
+typedef struct {
+  char** files;
+  size_t total_files;
+  int id;
+} thread_arg;
 
-void* ed2k() {
-  int this_file;
-  while (next_file < total_tests) {
-    this_file  = next_file;
-    next_file += 1;
-    FILE* fh   = fopen(test_files[this_file], "rb");
+long get_time() {
+  static mach_timebase_info_data_t freq = {0, 0};
+  if (freq.denom == 0)
+    mach_timebase_info(&freq);
+  return (mach_absolute_time() * freq.numer / freq.denom) / 1000;
+}
 
+void* ed2k(void* arg) {
+  thread_arg t = *((thread_arg*)arg);
+  for (int i = 0; i < t.total_files; ++i) {
+    FILE* fh = fopen(t.files[i], "rb");
     if (fh) {
       fseek(fh, 0L, SEEK_END);
       size_t fh_size = ftell(fh);
@@ -63,7 +70,7 @@ void* ed2k() {
       char* result = malloc(32 * sizeof(char*));
       for(int i = 0; i < MD4_DIGEST_LENGTH; ++i)
         sprintf(&result[i * 2], "%02x", (unsigned int)md[i]);
-      printf("%s|%s\n", test_files[this_file], result);
+      printf("%s :: %s\n", t.files[i], result);
 
       fclose(fh);
     }
@@ -72,16 +79,40 @@ void* ed2k() {
 }
 
 int main (int argc, const char *argv[]) {
+  long start_time = get_time();
+
+  const char* test_files[total_tests];
   for (int i = 0; i < total_tests; ++i) {
     test_files[i] = malloc(80 * sizeof(char*));
     sprintf(test_files[i], "/Users/rusty/Downloads/test%d.dat", i + 1);
   }
 
+  int per_thread   = floor(total_tests / total_threads);
+  int per_thread_r = total_tests % total_threads;
+
+  thread_arg thread_args[total_threads];
+  for (int i = 0; i < total_threads; ++i) {
+    thread_args[i].id    = i;
+    thread_args[i].files = malloc((per_thread + (i < per_thread_r)) * sizeof(char*));
+    unsigned int j, k;
+  	for (j = (i < per_thread_r ? \
+              i * (per_thread+1) : \
+              total_tests - (total_threads - i) * per_thread), \
+         k = j; \
+         k < j + per_thread + (i < per_thread_r); \
+         ++k) {
+  		thread_args[i].files[k - j] = malloc(strlen(test_files[j]) * sizeof(char*));
+      strcpy(thread_args[i].files[k - j], test_files[k]);
+  	}
+    thread_args[i].total_files = k - j;
+  }
+
   pthread_t threads[total_threads];
   for (int i = 0; i < total_threads; ++i)
-    pthread_create(&threads[i], NULL, ed2k, NULL);
+    pthread_create(&threads[i], NULL, ed2k, (void*)&thread_args[i]);
   for (int i = 0; i < total_threads; ++i)
     pthread_join(threads[i], NULL);
 
+  printf("exec time: %f\n", ((get_time() - start_time) / 1000000.f));
   return 0;
 }
