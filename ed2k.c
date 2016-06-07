@@ -3,7 +3,7 @@
 #include <string.h>
 #include <mach/mach_time.h>
 #include <openssl/md4.h>
-//#include "lib/threads/threads.h"
+#include <pthread.h>
 
 // FILE <9728000
 #define TEST1 "/Users/rusty/Downloads/test1.dat"

@@ -32,24 +32,17 @@ long get_time() {
 
 void test_thrd(void* arg) {
   thread_arg t_arg  = *((thread_arg*)arg);
-  long start_off_at = (CHUNK_SIZE * t_arg.size) * \
-                      (total_threads - (t_arg.id + 1));
-  long read_to      = (t_arg.id ? (CHUNK_SIZE * t_arg.size) * \
-                                  (total_threads - t_arg.id) : \
-                                   t_arg.fh_size);
-  printf("%ld %ld %d %zu\n", start_off_at, read_to, t_arg.id, t_arg.size);
-
   MD4_CTX chunk;
   MD4_Init(&chunk);
 
-  // for (long i = start_off_at; i < read_to; i += CHUNK_SIZE) {
-  //   for (int j = 0; j < CHUNK_SIZE; j += BUF_SIZE) {
-  //     mtx_lock(&t_mtx);
-  //     fseek(t_arg.fh, i + j, SEEK_SET);
-  //     printf("%d :: %lu -- %ld:%d -- %ld:%ld\n", t_arg.id, ftell(t_arg.fh), i, j, read_to, CHUNK_SIZE);
-  //     mtx_unlock(&t_mtx);
-  //   }
-  // }
+  for (long i = t_arg.start; i < t_arg.end; i += CHUNK_SIZE) {
+    for (int j = 0; j < CHUNK_SIZE; j += BUF_SIZE) {
+      mtx_lock(&t_mtx);
+      fseek(t_arg.fh, i + j, SEEK_SET);
+      //printf("%d :: %lu\n", t_arg.id, ftell(t_arg.fh));
+      mtx_unlock(&t_mtx);
+    }
+  }
 }
 
 int main (int argc, const char *argv[]) {
