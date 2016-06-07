@@ -5,22 +5,19 @@
 #include <openssl/md4.h>
 #include <pthread.h>
 
-#define TEST_FILE  "/Users/rusty/Downloads/haruhi.mkv"
 #define CHUNK_SIZE 9728000
 #define BUF_SIZE   8000
 
-const int total_threads = 4;
-const int total_tests   = 15;
-
-const char* test_files[total_tests];
-int next_file = 0;
+const char** files;
+int next_file   = 0,
+    total_files = 0;
 
 void* ed2k() {
   int this_file;
-  while (next_file < total_tests) {
+  while (next_file < total_files) {
     this_file  = next_file;
     next_file += 1;
-    FILE* fh   = fopen(test_files[this_file], "rb");
+    FILE* fh   = fopen(files[this_file], "rb");
 
     if (fh) {
       fseek(fh, 0L, SEEK_END);
@@ -63,8 +60,9 @@ void* ed2k() {
       char* result = malloc(32 * sizeof(char*));
       for(int i = 0; i < MD4_DIGEST_LENGTH; ++i)
         sprintf(&result[i * 2], "%02x", (unsigned int)md[i]);
-      printf("%s|%s\n", test_files[this_file], result);
+      printf("%s|%s\n", files[this_file], result);
 
+      free(result);
       fclose(fh);
     }
   }
@@ -72,15 +70,36 @@ void* ed2k() {
 }
 
 int main (int argc, const char *argv[]) {
-  for (int i = 0; i < total_tests; ++i) {
-    test_files[i] = malloc(80 * sizeof(char*));
-    sprintf(test_files[i], "/Users/rusty/Downloads/test%d.dat", i + 1);
+  int total_threads = 8, i = 0, j = 0;
+  const char** tmp_args = malloc(argc * sizeof(char*));
+  for (i = 1, j = 0; i < argc; ++i) {
+    if (argv[i][0] == '-' && argv[i][1] == '-') {
+      if (!strcmp("--threads", argv[i])) {
+        if ((i + 1) > (argc - 1))
+          continue;
+
+        total_threads = (unsigned)atoi(argv[++i]);
+        if (total_threads <= 1)
+          total_threads = 1;
+      }
+    } else {
+      tmp_args[j] = malloc(strlen(argv[i]) * sizeof(char*));
+      strcpy(tmp_args[j], argv[i]);
+      j++;
+    }
   }
 
+  total_files = j;
+  if (total_files < total_threads)
+    total_threads = total_files;
+  files       = malloc(j * sizeof(char*));
+  memcpy(files, tmp_args, j * sizeof(char*));
+  free(tmp_args);
+  
   pthread_t threads[total_threads];
-  for (int i = 0; i < total_threads; ++i)
+  for (i = 0; i < total_threads; ++i)
     pthread_create(&threads[i], NULL, ed2k, NULL);
-  for (int i = 0; i < total_threads; ++i)
+  for (i = 0; i < total_threads; ++i)
     pthread_join(threads[i], NULL);
 
   return 0;
