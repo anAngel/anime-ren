@@ -2,8 +2,6 @@
 require 'socket'
 require 'thread'
 
-AMASK      = "B0E0F040"
-FMASK      = "7178EAC0"
 SERV_ADDR  = "api.anidb.net"
 SERV_PORT  = 9000
 
@@ -17,7 +15,7 @@ class API
     @sock = UDPSocket.new
     @sock.bind 0, SERV_PORT
     @sock.connect SERV_ADDR, SERV_PORT
-    a = exec "AUTH user=#{user}&pass=#{pass}&protover=3&client=aniren&clientver=2&enc=UTF8"
+    a = exec "AUTH user=#{user}&pass=#{pass}&protover=3&client=aniren&clientver=3&nat=1&enc=utf-8"
     if a.status == 200
       @session_key = a.msg.split(" ")[0]
     else
@@ -26,9 +24,12 @@ class API
   end
 
   def exec cmd
+    cmd += "&s=#{@session_key}" unless cmd =~ /^[AUTH|LOGOUT]/
     puts "< #{cmd}"
-    @sock.send(cmd, 0)
+    @sock.puts(cmd)
+    @sock.flush
     msg    = @sock.recvfrom(1024)[0].split
+    @sock.flush
     status = msg[0].to_i
     msg    = msg[1..-1].join " "
     puts "> #{status}: #{msg}"
@@ -36,15 +37,15 @@ class API
   end
 
   def exit
-    exec("LOGOUT s=#{@session_key}")
+    exec "LOGOUT s=#{@session_key}"
     @sock.close
     @sock = nil
   end
 end
 
-mtx = Mutex.new
+mtx    = Mutex.new
 secret = File.open("secret", "rb").read.split "\n"
-#api    = API.new secret[0], secret[1]
+api    = API.new secret[0], secret[1]
 
 at_exit do
   api.exit
@@ -58,6 +59,8 @@ t = Thread.new {
       mtx.synchronize {
         puts "~ Processing \"#{f.file}\""
       }
+      f_ret = api.exec("FILE size=#{File.size(f.file)}&ed2k=#{f.hash}&fmask=7178EAC0&amask=C000F0C0");
+      puts f_ret
     end
   end
 }
