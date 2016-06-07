@@ -10,7 +10,6 @@ SERV_PORT  = 9000
 API_RESP = Struct.new :code, :msg
 ED2K_RET = Struct.new :hash, :fname, :len
 
-
 test = "AUTH user=#{}&pass=#{}&protover=3&client=aniren&clientver=2&enc=UTF8"
 
 sock = UDPSocket.new
@@ -23,3 +22,7 @@ sock.send "LOGOUT", 0
 data, addr = sock.recvfrom(1024)
 puts "From addr: '%s', msg: '%s'" % [addr.join(','), data]
 sock.close
+
+while STDIN.gets
+  puts $_
+end
