@@ -95,7 +95,7 @@ int main (int argc, const char *argv[]) {
   files       = malloc(j * sizeof(char*));
   memcpy(files, tmp_args, j * sizeof(char*));
   free(tmp_args);
-  
+
   pthread_t threads[total_threads];
   for (i = 0; i < total_threads; ++i)
     pthread_create(&threads[i], NULL, ed2k, NULL);
