@@ -60,7 +60,7 @@ void* ed2k() {
       char* result = malloc(32 * sizeof(char*));
       for(int i = 0; i < MD4_DIGEST_LENGTH; ++i)
         sprintf(&result[i * 2], "%02x", (unsigned int)md[i]);
-      printf("%s|%s\n", files[this_file], result);
+      printf("%s|%ld|%s\n", files[this_file], ftell(fh), result);
 
       free(result);
       fclose(fh);

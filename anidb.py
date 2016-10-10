@@ -4,11 +4,20 @@ host = ('api.anidb.net', 9000)
 port = 1444
 file_arr, still_open = [], True
 
-user, pw = open('secret', 'r').read()[:-1].split('\n')
+fmap = ['unused', 'aid', 'eid', 'gid', 'mylist_id', 'list_other_episodes', 'IsDeprecated', 'state', 'size', 'ed2k', 'md5', 'sha1', 'crc32', 'unused', 'unused', 'reserved', 'quality', 'src', 'audio', 'audio_bitrate_list', 'video', 'video_bitrate', 'res', 'file_type', 'dub', 'sub', 'length_in_seconds', 'description', 'aired_date', 'unused', 'unused', 'anidb_file_name', 'mylist_state', 'mylist_filestate', 'mylist_viewed', 'mylist_viewdate', 'mylist_storage', 'mylist_source', 'mylist_other', 'unused']
+amap = ['anime_total_episodes', 'highest_episode_number', 'year', 'file_type', 'related_aid_list', 'related_aid_type', 'category_list', 'reserved', 'romanji_name', 'kanji_name', 'english_name', 'other_name', 'short_name_list', 'synonym_list', 'retired', 'retired', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'episode_rating', 'episode_vote_count', 'unused', 'unused', 'group_name', 'group_short_name', 'unused', 'unused', 'unused', 'unused', 'unused', 'date_aid_record_updated']
+fields = ['fid', 'aid', 'eid', 'gid', 'size', 'ed2k', 'md5', 'sha1', 'crc32', 'dub', 'sub', 'src', 'audio', 'video', 'res', 'file_type', 'group_short_name', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'year', 'anime_total_episodes', 'romanji_name', 'english_name', 'kanji_name']
+
+def make_map(a, b):
+    m = ''.join(['1' if x in b else '0' for x in a])
+    return '%0*X' % ((len(m) + 3) // 4, int(m, 2))
+fmask = make_map(fmap, fields)
+amask = make_map(amap, fields)
 
 class ED2K():
-    def __init__(self, path, ed2k):
+    def __init__(self, path, size, ed2k):
         self.path = path
+        self.size = size
         self.hash = ed2k
 
 class Response():
@@ -46,12 +55,16 @@ class API(threading.Thread):
         self.s.close()
 
     def auth(self):
+	user, pw = open('secret', 'r').read()[:-1].split('\n')
         ret = self.send("AUTH user=%s&pass=%s&protover=3&client=aniren&clientver=3&nat=1&enc=utf-8" % (user, pw), True)
         if ret.code == 200:
             return ret.msg.split(" ")[0]
         else:
             print("ERROR! Auth failed: %d %s" % (ret.code, ret.msg))
             exit()
+
+    def file(self):
+        return
 
     def update_timer(self):
         self.timer = int(time.time())
@@ -77,9 +90,9 @@ def at_exit():
 atexit.register(at_exit)
 
 for arg in sys.stdin:
-    m = re.match(r'^(\/.+)+\.(.+){3,4}\|[A-Ga-g0-9]{32}$', arg)
+    m = re.match(r'^(\/.+)+\.(.+){3,4}\|(\d+)|[A-Ga-g0-9]{32}$', arg)
     if m:
-        a, b = arg.split('|')
-        file_arr.append(ED2K(a, b[:-1]))
+        a, b, c = arg.split('|')
+        file_arr.append(ED2K(a, int(b), c[:-1]))
 still_open = False
 api.join()
