@@ -46,7 +46,7 @@ class API(threading.Thread):
     def run(self):
         while len(file_arr) > 0 or still_open:
             if len(file_arr) > 0:
-                print(file_arr[0].path, file_arr[0].hash)
+                self.file(file_arr[0])
                 file_arr.pop(0)
 
     def close(self):
@@ -55,7 +55,7 @@ class API(threading.Thread):
         self.s.close()
 
     def auth(self):
-	user, pw = open('secret', 'r').read()[:-1].split('\n')
+        user, pw = open('secret', 'r').read()[:-1].split('\n')
         ret = self.send("AUTH user=%s&pass=%s&protover=3&client=aniren&clientver=3&nat=1&enc=utf-8" % (user, pw), True)
         if ret.code == 200:
             return ret.msg.split(" ")[0]
@@ -63,7 +63,8 @@ class API(threading.Thread):
             print("ERROR! Auth failed: %d %s" % (ret.code, ret.msg))
             exit()
 
-    def file(self):
+    def file(self, ed2k):
+        ret = self.send('FILE size=%d&ed2k=%s&fmask=%s&amask=%s&s=%s' % (ed2k.size, ed2k.hash, fmask, amask, self.session))
         return
 
     def update_timer(self):
