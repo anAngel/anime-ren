@@ -58,11 +58,11 @@ class API(threading.Thread):
 
     def send(self, msg, skipwait=False):
         print("> ", re.sub(r'user=\w+&pass=.*?&', "user=*****&pass=*****&", msg))
-        c_time = int(time.time())
-        if c_time - self.timer < 4 and not skipwait:
-            wait = 4 - c_time + self.timer
-            print("~ Waiting %d second(s)", wait)
-            time.sleep(wait)
+        x = int(time.time())
+        if x - self.timer < 4 and not skipwait:
+            y = 4 - x + self.timer
+            print("~ Waiting %d second(s)", y)
+            time.sleep(y)
         self.s.sendto(msg.encode('UTF-8'), host)
         self.update_timer()
         a = Response(self.s.recvfrom(1024)[0].decode('UTF-8'))
