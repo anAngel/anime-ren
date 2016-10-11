@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import sys, re, socket, atexit, threading, time
+import sys, re, socket, atexit, threading, time, os.path
 
-host = ('api.anidb.net', 9000)
-port = 1444
-file_arr, still_open = [], True
+host       = ('api.anidb.net', 9000)
+port       = 1444
+file_arr   = []
+still_open = True
 
 fields = ['fid', 'aid', 'eid', 'gid', 'size', 'ed2k', 'md5', 'sha1', 'crc32', 'dub', 'sub', 'src', 'audio', 'video', 'res', 'file_type', 'group_short_name', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'year', 'anime_total_episodes', 'romanji_name', 'english_name', 'kanji_name']
 
@@ -21,9 +22,17 @@ class Response():
 
 class Config():
     def __init__(self, path):
+        if not os.path.exists(path):
+            print("ERROR! Invalid config path")
+            exit()
+
+        self.args = {**{'mlviewed': '1', 'mledit': '0', 'ovaformat': '%enr. %ann - %epn (%typ, %src) [%crc] - %grp', 'mlstate': '1', 'format': '%enr. %ann - %epn (%typ, %src) [%crc] - %grp', 'movformat': '%eng (%src, %yea) [%crc] - %grp', 'mladd': '0'}, **dict(x.split('=') for x in [y[:-1] for y in open(path).readlines() if not y.startswith('#')])}
+        if not ('pass' in self.args and 'user' in self.args):
+            print("ERROR! Username or password not proved in config")
+            exit()
+
         self.fmask = self.make_map(['unused', 'aid', 'eid', 'gid', 'mylist_id', 'list_other_episodes', 'IsDeprecated', 'state', 'size', 'ed2k', 'md5', 'sha1', 'crc32', 'unused', 'unused', 'reserved', 'quality', 'src', 'audio', 'audio_bitrate_list', 'video', 'video_bitrate', 'res', 'file_type', 'dub', 'sub', 'length_in_seconds', 'description', 'aired_date', 'unused', 'unused', 'anidb_file_name', 'mylist_state', 'mylist_filestate', 'mylist_viewed', 'mylist_viewdate', 'mylist_storage', 'mylist_source', 'mylist_other', 'unused'], fields)
         self.amask = self.make_map(['anime_total_episodes', 'highest_episode_number', 'year', 'file_type', 'related_aid_list', 'related_aid_type', 'category_list', 'reserved', 'romanji_name', 'kanji_name', 'english_name', 'other_name', 'short_name_list', 'synonym_list', 'retired', 'retired', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'episode_rating', 'episode_vote_count', 'unused', 'unused', 'group_name', 'group_short_name', 'unused', 'unused', 'unused', 'unused', 'unused', 'date_aid_record_updated'], fields)
-        return
 
     def make_map(self, a, b):
         m = ''.join(['1' if x in b else '0' for x in a])
@@ -84,6 +93,7 @@ class API(threading.Thread):
         print("< %d %s" % (a.code, a.msg[:-1]))
         return a
 
+c = Config("secret")
 api = API()
 api.start()
 
