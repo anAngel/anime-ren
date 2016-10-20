@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-import sys, re, socket, atexit, threading, time, os.path
+import sys
+import re
+import socket
+import atexit
+import threading
+import time
+import os.path
 
-host       = ("api.anidb.net", 9000)
-port       = 1444
-file_arr   = []
+host = ("api.anidb.net", 9000)
+port = 1444
+file_arr = []
 still_open = True
-
-fields = ['fid', 'aid', 'eid', 'gid', 'size', 'ed2k', 'md5', 'sha1', 'crc32', 'dub', 'sub', 'src', 'audio', 'video', 'res', 'file_type', 'group_short_name', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'year', 'anime_total_episodes', 'romanji_name', 'english_name', 'kanji_name']
 
 class ED2K():
     def __init__(self, path, size, ed2k):
@@ -14,11 +18,13 @@ class ED2K():
         self.size = size
         self.hash = ed2k
 
+
 class Response():
     def __init__(self, msg):
-        a = msg.split(' ')
+        a         = msg.split(' ')
         self.code = int(a[0])
         self.msg  = ' '.join(a[1:])
+
 
 class Config():
     def __init__(self, path):
@@ -26,19 +32,28 @@ class Config():
             print("ERROR! Invalid config path")
             exit()
 
-        self.args = {**{'mlviewed': '1', 'mledit': '0', 'ovaformat': '%enr. %ann - %epn (%typ, %src) [%crc] - %grp', 'mlstate': '1', 'format': '%enr. %ann - %epn (%typ, %src) [%crc] - %grp', 'movformat': '%eng (%src, %yea) [%crc] - %grp', 'mladd': '0'}, **dict(x.split('=') for x in [y[:-1] for y in open(path).readlines() if not y.startswith('#')])}
-        if not ('pass' in self.args and 'user' in self.args):
-            print("ERROR! Username or password not proved in config")
+        self.keys = {
+            **{'mlviewed':  '1',
+               'mledit':    '0',
+               'mlstate':   '1',
+               'mladd':     '0',
+               'ovaformat': '%epno. %romanji_name - %english_name (%anime_type, %src) [%crc32] - %group_short_name.%file_type',
+               'format':    '%epno. %romanji_name - %english_name (%anime_type, %src) [%crc32] - %group_short_name.%file_type',
+               'movformat': '%english_name (%src, %year) [%crc32] - %group_short_name.%file_type'},
+            **dict(x.split('=') for x in [y[:-1] for y in open(path).readlines() if not y.startswith('#') and '=' in y])}
+        if not ('pass' in self.keys and 'user' in self.keys):
+            print("ERROR! Username or password not provided in config")
             exit()
 
-        fmask = self.make_map(['unused', 'aid', 'eid', 'gid', 'mylist_id', 'list_other_episodes', 'IsDeprecated', 'state', 'size', 'ed2k', 'md5', 'sha1', 'crc32', 'unused', 'unused', 'reserved', 'quality', 'src', 'audio', 'audio_bitrate_list', 'video', 'video_bitrate', 'res', 'file_type', 'dub', 'sub', 'length_in_seconds', 'description', 'aired_date', 'unused', 'unused', 'anidb_file_name', 'mylist_state', 'mylist_filestate', 'mylist_viewed', 'mylist_viewdate', 'mylist_storage', 'mylist_source', 'mylist_other', 'unused'], fields)
-        amask = self.make_map(['anime_total_episodes', 'highest_episode_number', 'year', 'file_type', 'related_aid_list', 'related_aid_type', 'category_list', 'reserved', 'romanji_name', 'kanji_name', 'english_name', 'other_name', 'short_name_list', 'synonym_list', 'retired', 'retired', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'episode_rating', 'episode_vote_count', 'unused', 'unused', 'group_name', 'group_short_name', 'unused', 'unused', 'unused', 'unused', 'unused', 'date_aid_record_updated'], fields)
-        self.fmask  = fmask[0]
-        self.amask  = amask[0]
-        self.fields = ['fid'] + fmask[1] + amask[1]
+        self.config_fields = list(set(re.findall(r'%([0-9a-zA-Z_]+)', "%s %s %s %anime_type" % (self.keys['format'], self.keys['ovaformat'], self.keys['movformat']))))
+        fmask              = self.make_map(['', 'aid', 'eid', 'gid', 'lid', 'list_other_episodes', '', 'state', 'size', 'ed2k', 'md5', 'sha1', 'crc32', '', '', '', 'quality', 'src', 'audio', 'audio_bitrate_list', 'video', 'video_bitrate', 'res', 'file_type', 'dub', 'sub', 'length', 'description', 'aired_date', '', '', 'anidb_file_name', 'mylist_state', 'mylist_filestate', 'mylist_viewed', 'mylist_viewdate', 'mylist_storage', 'mylist_source', 'mylist_other', ''], self.config_fields)
+        amask              = self.make_map(['anime_total_episodes', 'highest_episode_number', 'year', 'anime_type', 'related_aid_list', 'related_aid_type', 'category_list', '', 'romanji_name', 'kanji_name', 'english_name', 'other_name', 'short_name_list', 'synonym_list', '', '', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'episode_rating', 'episode_vote_count', '', '', 'group_name', 'group_short_name', '', '', '', '', '', 'date_aid_record_updated'], self.config_fields)
+        self.fmask         = fmask[0]
+        self.amask         = amask[0]
+        self.fields        = ['fid'] + fmask[1] + amask[1]
 
     def get(self, key):
-        return self.args[key] if key in self.args else None
+        return self.keys[key] if key in self.keys else None
 
     def make_map(self, a, b):
         m = ''.join(['1' if x in b else '0' for x in a])
@@ -76,9 +91,9 @@ class API(threading.Thread):
         if ret.code != 200:
             print("ERROR! Auth failed")
             exit()
-        
+
         session = ret.msg.split(' ')[0]
-        m = re.match(r'^[a-z0-9]{4,8}$', session, re.I)
+        m = re.match(r'^[a-zA-Z0-9]{4,8}$', session)
         if m:
             return session
         else:
@@ -87,8 +102,8 @@ class API(threading.Thread):
 
     def file(self, ed2k):
         ret = self.send("FILE size=%d&ed2k=%s&fmask=%s&amask=%s&s=%s" % (ed2k.size, ed2k.hash, self.config.fmask, self.config.amask, self.session))
-        x   = ret.msg.split('|')
-        y   = {f: x[self.config.fields.index(f)] for f in fields}
+        x = ret.msg[5:-1].split('|')
+        y = {f: x[self.config.fields.index(f)] for f in self.config.config_fields}
         print(y)
 
     def update_timer(self):
@@ -99,7 +114,7 @@ class API(threading.Thread):
         x = int(time.time())
         if x - self.timer < 4 and not skipwait:
             y = 4 - x + self.timer
-            print("~ Waiting %d second(s)", y)
+            print("~ Waiting %d second(s)" % y)
             time.sleep(y)
         self.s.sendto(msg.encode('UTF-8'), host)
         self.update_timer()
