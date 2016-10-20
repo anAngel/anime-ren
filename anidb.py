@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-import sys
-import re
-import socket
-import atexit
-import threading
-import time
-import os.path
+import sys, re, socket, atexit, threading, time, os
+from functools import reduce
 
-host = ("api.anidb.net", 9000)
-port = 1444
-file_arr = []
+host       = ("api.anidb.net", 9000)
+port       = 1444
+file_arr   = []
 still_open = True
+
+def rename_worker(path_to, path_from):
+    print("~ Renaming: %s => %s" % (path_from, path_to))
+    try:
+        os.rename(path_from, path_to)
+    except OSError as e:
+        print("! ERROR! Failed to rename \"%s\" - %s" % (path_from, e))
 
 class ED2K():
     def __init__(self, path, size, ed2k):
@@ -45,7 +47,7 @@ class Config():
             print("ERROR! Username or password not provided in config")
             exit()
 
-        self.config_fields = list(set(re.findall(r'%([0-9a-zA-Z_]+)', "%s %s %s %anime_type" % (self.keys['format'], self.keys['ovaformat'], self.keys['movformat']))))
+        self.config_fields = list(set(re.findall(r'%([0-9a-zA-Z_]+)', "%s %s %s" % (self.keys['format'], self.keys['ovaformat'], self.keys['movformat']))))
         fmask              = self.make_map(['', 'aid', 'eid', 'gid', 'lid', 'list_other_episodes', '', 'state', 'size', 'ed2k', 'md5', 'sha1', 'crc32', '', '', '', 'quality', 'src', 'audio', 'audio_bitrate_list', 'video', 'video_bitrate', 'res', 'file_type', 'dub', 'sub', 'length', 'description', 'aired_date', '', '', 'anidb_file_name', 'mylist_state', 'mylist_filestate', 'mylist_viewed', 'mylist_viewdate', 'mylist_storage', 'mylist_source', 'mylist_other', ''], self.config_fields)
         amask              = self.make_map(['anime_total_episodes', 'highest_episode_number', 'year', 'anime_type', 'related_aid_list', 'related_aid_type', 'category_list', '', 'romanji_name', 'kanji_name', 'english_name', 'other_name', 'short_name_list', 'synonym_list', '', '', 'epno', 'ep_name', 'ep_romanji_name', 'ep_kanji_name', 'episode_rating', 'episode_vote_count', '', '', 'group_name', 'group_short_name', '', '', '', '', '', 'date_aid_record_updated'], self.config_fields)
         self.fmask         = fmask[0]
@@ -102,15 +104,17 @@ class API(threading.Thread):
 
     def file(self, ed2k):
         ret = self.send("FILE size=%d&ed2k=%s&fmask=%s&amask=%s&s=%s" % (ed2k.size, ed2k.hash, self.config.fmask, self.config.amask, self.session))
-        x = ret.msg[5:-1].split('|')
-        y = {f: x[self.config.fields.index(f)] for f in self.config.config_fields}
-        print(y)
+        x   = ret.msg[5:-1].split('|')
+        y   = {f: x[self.config.fields.index(f)] for f in self.config.config_fields}
+        z   = reduce(lambda a, b: a.replace('%' + b, y[b]), y, self.config.get('format'))
+        t   = threading.Thread(target=rename_worker, args=(reduce(lambda a, b: a.replace('%' + b, y[b]), y, self.config.get('movformat') if y['anime_type'] == 'Movie' else self.config.get('ovaformat') if y['anime_type'] == 'OVA' else self.config.get('format')), ed2k.path))
+        t.start()
 
     def update_timer(self):
         self.timer = int(time.time())
 
     def send(self, msg, skipwait=False):
-        print("> ", re.sub(r'user=\w+&pass=.*?&', "user=*****&pass=*****&", msg))
+        print("> ", re.sub(r'user=\w+&pass=.*?&', "user=******&pass=******&", msg))
         x = int(time.time())
         if x - self.timer < 4 and not skipwait:
             y = 4 - x + self.timer
