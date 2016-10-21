@@ -3,7 +3,7 @@ import sys, re, socket, atexit, threading, time, os
 from functools import reduce
 
 host       = ("api.anidb.net", 9000)
-port       = 1444
+port       = ('', 1444)
 file_arr   = []
 still_open = True
 
@@ -20,13 +20,11 @@ class ED2K():
         self.size = size
         self.hash = ed2k
 
-
 class Response():
     def __init__(self, msg):
         a         = msg.split(' ')
         self.code = int(a[0])
         self.msg  = ' '.join(a[1:])
-
 
 class Config():
     def __init__(self, path):
@@ -56,7 +54,6 @@ class Config():
         return ('%0*X' % ((len(m) + 3) // 4, int(m, 2)),
                 [a[z] for z, y in enumerate(m) if y == '1'])
 
-
 class API(threading.Thread):
     def __init__(self, config):
         threading.Thread.__init__(self)
@@ -65,7 +62,7 @@ class API(threading.Thread):
         self.session = ""
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.s.bind(('', 1444))
+            self.s.bind(port)
         except socket.error:
             print("ERROR! Socket failed")
             exit()
