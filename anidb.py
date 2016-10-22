@@ -9,6 +9,8 @@ work_queue   = queue.Queue()
 config       = {'default': '%epno. %romanji_name - %english_name (%anime_type, %src) [%crc32] - %group_short_name.%file_type'}
 session_key  = ''
 session      = None
+loading_anim = False
+loading_x    = 1
 
 config_path = os.path.expanduser("~/.anime-ren.conf")
 if not os.path.exists(config_path):
@@ -58,8 +60,12 @@ def work_rename(path_to, path_from):
     except OSError as e:
         print("! ERROR! Failed to rename \"%s\" - %s" % (path_from, e))
 
-
 def send_request(cmd, skip_wait=False):
+    global loading_anim
+    if loading_anim:
+        print(' ' * loading_x, end='\r')
+        loading_anim = False
+
     print(">", re.sub(r'user=\w+&pass=.*?&', "user=******&pass=******&", cmd))
 
     global last_request
@@ -91,6 +97,15 @@ def work_loop():
             if end_input.acquire(blocking=False):
                 break
             else:
+                global loading_anim, loading_x
+                if time.time() - last_request > 3 and not loading_anim:
+                    loading_anim = True
+                if loading_anim:
+                    print('·' * loading_x, end='\r')
+                    loading_x += 1
+                    if loading_x > 6:
+                        print(' ' * loading_x, end='\r')
+                        loading_x = 1
                 if time.time() - last_request > 300:
                     send_request("PING", True)
 
@@ -98,10 +113,11 @@ work_thread = threading.Thread(target=work_loop)
 work_thread.start()
 
 def work_cleanup():
-    print("\n\n! Incomplete Jobs:")
-    while not work_queue.empty():
-        print("~ %s" % work_queue.get()[0])
-    print()
+    if not work_queue.empty():
+        print("\n\n! Incomplete Jobs:")
+        while not work_queue.empty():
+            print("~ %s" % work_queue.get()[0])
+        print()
 
 tmp_key = send_request("AUTH user=%s&pass=%s&protover=3&client=aniren&clientver=3&nat=1&enc=utf-8" % (config['user'], config['pass']), True)[1].split(' ')[0]
 m       = re.match(r'^[a-zA-Z0-9]{4,8}$', tmp_key)
