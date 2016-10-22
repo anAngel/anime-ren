@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/env python3
 import sys, re, socket, atexit, threading, time, os, queue
 from functools import reduce
 
