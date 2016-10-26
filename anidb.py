@@ -121,7 +121,7 @@ def work_loop():
             x = work_queue.get(timeout=0.1)
             y = send_request("FILE size=%d&ed2k=%s&fmask=%s&amask=%s&s=%s" % (int(x[1]), x[2], config['fmask'], config['amask'], session_key))
             z = dict(zip(fields, y[1][5:].split('|')))
-            n = reduce(lambda a, b: a.replace('%' + b, z[b]), z, config[z['anime_type']] if z['anime_type'] in config else config['default'])
+            n = re.sub(r'[:*?"\'<>|]', '', reduce(lambda a, b: a.replace('%' + b, z[b]), z, config[z['anime_type']] if z['anime_type'] in config else config['default']))
             if dry_run:
                 print("%s => %s" % (x[0], n))
             else:
