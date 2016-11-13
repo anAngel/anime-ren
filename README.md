@@ -1,7 +1,7 @@
 # anime-ren
 Mutli-threaded AniDB rename client
 
-Pretty simple Anime renamer. Requires my [https://github.com/takeiteasy/ed2k](ED2K hasher)
+Pretty simple Anime renamer. Requires my [ED2K hasher](https://github.com/takeiteasy/ed2k)
 
 ed2k.c and anidb.py are mutli-threaded, to try and reduce lag between renaming files.
 
