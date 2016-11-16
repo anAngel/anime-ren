@@ -169,9 +169,9 @@ atexit.register(at_exit)
 
 try:
     for line in sys.stdin:
-        m = re.match(r'^(\/.+)+\.(.+){3,4}\|(\d+)|[A-Ga-g0-9]{32}$', line)
+        m = re.match(r'^ed2k:\/\/\|file\|(\/.+)+\.(.+){3,4}\|(\d+)|[A-Ga-g0-9]{32}\|$', line)
         if m:
-            work_queue.put(line[:-1].split('|'))
+            work_queue.put(line[:-1].split('|')[2:5])
 
     end_input.release()
     work_thread.join()
